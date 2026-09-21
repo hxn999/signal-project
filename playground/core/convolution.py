@@ -61,7 +61,8 @@ class ConvResult:
 
     def step(self, index: int) -> Step:
         if not 0 <= index < self.num_steps:
-            raise IndexError(f"step {index} out of range 0..{self.num_steps - 1}")
+            raise IndexError(
+                f"step {index} out of range 0..{self.num_steps - 1}")
         m, n = divmod(index, self.output.shape[1])
         r0, c0 = m * self.stride[0], n * self.stride[1]
         kh, kw = self.applied_kernel.shape
@@ -97,7 +98,8 @@ def output_shape(in_shape: tuple[int, int], k_shape: tuple[int, int],
     kh, kw = k_shape
     if hp < kh or wp < kw:
         what = "padded input" if top + bottom + left + right else "input"
-        raise ConvolutionError(f"kernel {kh}×{kw} is larger than the {what} {hp}×{wp}")
+        raise ConvolutionError(
+            f"kernel {kh}×{kw} is larger than the {what} {hp}×{wp}")
     return (hp - kh) // stride[0] + 1, (wp - kw) // stride[1] + 1
 
 
@@ -121,5 +123,6 @@ def convolve2d(x, k, stride=(1, 1), padding: str = "zero", flip: bool = True) ->
     applied = k[::-1, ::-1].copy() if flip else k.copy()
     padded, pad = pad_input(x, *k.shape, padding)
     windows = sliding_window_view(padded, k.shape)[::sh, ::sw]
-    out = np.einsum("mnij,ij->mn", windows, applied)
+    # out = np.einsum("mnij,ij->mn", windows, applied)
+    out = (windows * applied).sum(axis=(-2, -1))
     return ConvResult(x, k, applied, padded, pad, (sh, sw), padding, flip, out)

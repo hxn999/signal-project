@@ -52,6 +52,10 @@ def _pattern(name: str, rows: int, cols: int, value: float) -> np.ndarray:
         x[:, cols // 2:] = value
     elif name == "Gradient":
         x[:] = np.linspace(0, value, cols)[None, :]
+    elif name == "2D Impulse":
+        x[rows // 2, cols // 2] = 1.0
+    elif name == "2D Step":
+        x[rows // 2:, cols // 2:] = 1.0
     return x
 
 
@@ -126,6 +130,9 @@ class InputPanel(QWidget):
         patterns.setPopupMode(QToolButton.InstantPopup)
         menu = QMenu(patterns)
         for name in ("Square", "Ring", "Cross", "Diagonal", "Checkerboard", "Vertical edge", "Gradient"):
+            menu.addAction(name, lambda n=name: self._apply_pattern(n))
+        menu.addSeparator()
+        for name in ("2D Impulse", "2D Step"):
             menu.addAction(name, lambda n=name: self._apply_pattern(n))
         patterns.setMenu(menu)
         for b in (clear, rand, patterns):

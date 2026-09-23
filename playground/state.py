@@ -7,6 +7,7 @@ from PySide6.QtCore import QObject, Signal
 
 from .core.convolution import ConvolutionError, ConvResult, convolve2d
 from .core.kernels import make_preset
+from .core.analyzer import conv_corr_difference
 
 CUSTOM = "Custom"
 
@@ -32,6 +33,7 @@ class PlaygroundState(QObject):
     paramsChanged = Signal()
     resultChanged = Signal()
     stepChanged = Signal(int)
+    flipChanged = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -44,8 +46,9 @@ class PlaygroundState(QObject):
         self.kernel = make_preset(self.kernel_name, self.kernel_size)
         self.stride = (1, 1)
         self.padding = "zero"
-        self.flip = True                     # true convolution (correlation toggle comes later)
+        self.flip = True                     # True = convolution, False = cross-correlation
         self.result: ConvResult | None = None
+        self.result_alt: ConvResult | None = None  # result with opposite flip
         self.error = ""
         self.step = -1
         self._recompute()
@@ -117,6 +120,22 @@ class PlaygroundState(QObject):
             self.paramsChanged.emit()
             self._recompute()
 
+    def set_flip(self, flip: bool) -> None:
+        if flip != self.flip:
+            self.flip = flip
+            self.flipChanged.emit(flip)
+            self.paramsChanged.emit()
+            self._recompute()
+
+    @property
+    def max_diff(self) -> float | None:
+        """Max |conv − corr| between the two modes."""
+        out_conv = self.result.output if self.result and self.flip else (
+            self.result_alt.output if self.result_alt else None)
+        out_corr = self.result.output if self.result and not self.flip else (
+            self.result_alt.output if self.result_alt else None)
+        return conv_corr_difference(out_conv, out_corr)
+
     # ---- animation cursor ----------------------------------------------------
     def set_step(self, step: int) -> None:
         step = max(-1, min(int(step), self.num_steps))
@@ -131,6 +150,11 @@ class PlaygroundState(QObject):
         except ConvolutionError as exc:
             self.result = None
             self.error = str(exc)
+        # Also compute the alternate-flip result for comparison
+        try:
+            self.result_alt = convolve2d(self.input, self.kernel, self.stride, self.padding, not self.flip)
+        except ConvolutionError:
+            self.result_alt = None
         self.step = self.num_steps  # show the finished result; play restarts from 0
         self.resultChanged.emit()
         self.stepChanged.emit(self.step)

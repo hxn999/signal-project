@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..state import PlaygroundState
+from .analyzer_panel import AnalyzerPanel
 from .compute_panel import ComputePanel
 from .input_panel import InputPanel
 from .kernel_panel import KernelPanel
@@ -73,8 +74,10 @@ class MainWindow(QMainWindow):
         self.input_panel = InputPanel(self.state)
         self.kernel_panel = KernelPanel(self.state)
         self.compute_panel = ComputePanel(self.state)
+        self.analyzer_panel = AnalyzerPanel(self.state)
         for title, panel in (("Input", self.input_panel), ("Kernel", self.kernel_panel),
-                             ("Computation", self.compute_panel)):
+                             ("Computation", self.compute_panel),
+                             ("Analysis", self.analyzer_panel)):
             card = Card(title)
             card.body.addWidget(panel)
             v.addWidget(card)

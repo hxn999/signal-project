@@ -1,12 +1,15 @@
-"""Computation parameters: stride and padding mode, plus live shape readout."""
+"""Computation parameters: stride, padding mode, convolution / correlation toggle, plus live shape readout."""
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import QComboBox, QGridLayout, QHBoxLayout, QSpinBox, QVBoxLayout, QWidget
 
 from ..core.convolution import PADDING_LABELS
+from ..core.analyzer import is_symmetric
 from ..state import PlaygroundState
 from .widgets import label
+
+from ..ui import theme
 
 
 class ComputePanel(QWidget):
@@ -38,12 +41,27 @@ class ComputePanel(QWidget):
         self.padding.currentIndexChanged.connect(lambda: state.set_padding(self.padding.currentData()))
         g.addWidget(label("Padding", "dim"), 1, 0)
         g.addWidget(self.padding, 1, 1)
+
+        # --- Mode: convolution / cross-correlation ---
+        self.mode = QComboBox()
+        self.mode.addItem("Convolution  (flip kernel)", True)
+        self.mode.addItem("Cross-correlation  (no flip)", False)
+        self.mode.setCurrentIndex(0 if state.flip else 1)
+        self.mode.currentIndexChanged.connect(self._on_mode)
+        g.addWidget(label("Mode", "dim"), 2, 0)
+        g.addWidget(self.mode, 2, 1)
+
         g.setColumnStretch(1, 1)
         v.addLayout(g)
 
         self.readout = label("", "dim")
         self.readout.setWordWrap(True)
         v.addWidget(self.readout)
+
+        self.diff_label = label("", "dim")
+        self.diff_label.setWordWrap(True)
+        v.addWidget(self.diff_label)
+
         self.error = label("", "error")
         self.error.setWordWrap(True)
         v.addWidget(self.error)
@@ -54,6 +72,10 @@ class ComputePanel(QWidget):
     def _on_stride(self) -> None:
         self.state.set_stride(self.stride_r.value(), self.stride_c.value())
 
+    def _on_mode(self) -> None:
+        flip = self.mode.currentData()
+        self.state.set_flip(flip)
+
     def _sync(self) -> None:
         s, res = self.state, self.state.result
         h, w = s.input.shape
@@ -63,5 +85,21 @@ class ComputePanel(QWidget):
             m, n = res.output.shape
             lines += [f"Padded input  {hp}×{wp}", f"Output  {m}×{n}  ·  {res.num_steps:,} steps"]
         self.readout.setText("<br>".join(lines))
+
+        # Convolution vs correlation difference
+        diff = s.max_diff
+        sym = is_symmetric(s.kernel)
+        if diff is not None:
+            if sym:
+                self.diff_label.setText(
+                    f"<span style='color:{theme.ACCENT}'>Kernel is symmetric → "
+                    f"convolution ≡ correlation  (max |diff| = 0)</span>")
+            else:
+                self.diff_label.setText(
+                    f"<span style='color:{theme.HIGHLIGHT}'>max |conv − corr| = {diff:.6g}</span>")
+            self.diff_label.setVisible(True)
+        else:
+            self.diff_label.setVisible(False)
+
         self.error.setText(s.error)
         self.error.setVisible(bool(s.error))

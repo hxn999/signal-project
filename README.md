@@ -4,7 +4,8 @@ CSE 219 — Signals and Linear Systems. A desktop app (PySide6 / Qt 6) for explo
 2D convolution: the kernel is treated as the impulse response of a 2D LTI system and
 the convolution is animated one output sample at a time.
 
-**Version 0.1** covers the *Input* and *Computation & Visualization* parts of the proposal.
+**Version 0.2** adds correlation comparison, causality & BIBO analysis, and
+impulse / step response modes on top of the v0.1 foundation.
 
 ## Run
 
@@ -44,15 +45,35 @@ Tests: `.venv\Scripts\python -m pytest`
 
 Keyboard: `Space` play/pause · `←`/`→` step · `Home` reset · `End` finish.
 
+## Features (v0.2)
+
+**Reflect-and-shift & correlation comparison**
+- Mode dropdown in the Computation card: switch between true **convolution** (kernel
+  flipped) and **cross-correlation** (no flip).
+- The step-by-step view updates its labels, operator glyph (⊛ vs ⋆) and equation
+  breakdown dynamically.
+- Live readout of **max |conv − corr|** — zero for symmetric kernels, non-zero otherwise.
+
+**Causality & BIBO stability analyzer** (new Analysis card)
+- **Causality** test under raster-scan ordering: reports whether the kernel is causal
+  and, if not, the minimum origin shift *(a, b)* to make it causal.
+- **BIBO stability**: computes *S = ΣΣ|h|*, *B = max|x|*, the theoretical bound
+  *|y| ≤ B·S*, and compares it against the actual output maximum.
+- **DC gain & classification**: displays *G = ΣΣh* and classifies the kernel as
+  *averaging* (G ≠ 0) or *differencing* (G ≈ 0).
+
+**Impulse & step response mode**
+- New **2D Impulse** and **2D Step** patterns in the sketch grid's Patterns menu.
+- Convolving with the impulse demonstrates that *y = h* (kernel = impulse response).
+- Convolving with the step shows the accumulated response.
+
 ## Layout
 
 ```
 main.py                     entry point
-playground/core/            pure numpy: convolution.py, kernels.py, image_io.py
+playground/core/            pure numpy: convolution.py, kernels.py, image_io.py, analyzer.py
 playground/state.py         PlaygroundState — shared state + signals
-playground/ui/              Qt widgets (matrix_grid.py is the reusable grid renderer)
-tests/                      pytest suite for the core
+playground/ui/              Qt widgets (matrix_grid.py, analyzer_panel.py, …)
+tests/                      pytest suite for the core (128 tests)
 ```
 
-`convolve2d(..., flip=False)` already computes cross-correlation, ready for the
-reflect-and-shift / correlation comparison feature planned for the next version.

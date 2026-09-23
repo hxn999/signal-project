@@ -31,9 +31,13 @@ def equation_html(res: ConvResult, st: Step) -> str:
         shown += f" + … <span style='color:{theme.TEXT_FAINT}'>({len(terms) - MAX_TERMS} more terms)</span>"
     rows = f"{r0 - top}…{r0 - top + kh - 1}"
     cols = f"{c0 - left}…{c0 - left + kw - 1}"
+    if res.flip:
+        kernel_desc = "h̃[i, j] &nbsp;(h̃ = flipped h)"
+    else:
+        kernel_desc = "h[i, j] &nbsp;(no flip — cross-correlation)"
     head = (f"<span style='color:{theme.HIGHLIGHT}; font-weight:600'>y[{m}, {n}]</span>"
             f"<span style='color:{theme.TEXT_DIM}'> = Σ<sub>i,j</sub> x<sub>pad</sub>[{m * res.stride[0]}+i, "
-            f"{n * res.stride[1]}+j] · h̃[i, j] &nbsp;(h̃ = flipped h) &nbsp;·&nbsp; "
+            f"{n * res.stride[1]}+j] · {kernel_desc} &nbsp;·&nbsp; "
             f"window over x rows {rows}, cols {cols}</span>")
     body = (f"= {shown}<br>= <span style='color:{theme.HIGHLIGHT}; font-weight:600'>"
             f"{format_value(st.value)}</span>")
@@ -73,7 +77,8 @@ class StepView(QWidget):
         self.kernel_pane = Pane("Kernel (flipped)  h[−i, −j]", self.kernel_grid)
         self.output_pane = Pane("Output  y[m, n]", self.output_grid)
         row.addWidget(self.input_pane, 5)
-        row.addWidget(label("⊛", "glyph"), 0, Qt.AlignVCenter)
+        self.op_label = label("⊛", "glyph")
+        row.addWidget(self.op_label, 0, Qt.AlignVCenter)
         row.addWidget(self.kernel_pane, 2)
         row.addWidget(label("=", "glyph"), 0, Qt.AlignVCenter)
         row.addWidget(self.output_pane, 4)
@@ -93,6 +98,7 @@ class StepView(QWidget):
 
         state.resultChanged.connect(self._on_result)
         state.stepChanged.connect(self._on_step)
+        state.flipChanged.connect(self._on_flip)
         self._on_result()
 
     def _on_input_edit(self, r: int, c: int, value: float) -> None:
@@ -107,10 +113,10 @@ class StepView(QWidget):
         in_range = (0.0, 255.0) if not sketch else (min(float(x.min()), 0.0), max(float(x.max()), 1e-12))
         h, w = x.shape
         kh, kw = s.kernel.shape
-        self.kernel_pane.caption.setText(f"{kh}×{kw} · {s.kernel_name} · reflected for convolution")
+        self._update_pane_titles()
         if res is None:
             self.input_grid.set_matrix(x, vrange=in_range)
-            self.kernel_grid.set_matrix(s.kernel[::-1, ::-1])
+            self.kernel_grid.set_matrix(s.kernel[::-1, ::-1] if s.flip else s.kernel)
             self.output_grid.set_matrix([[0.0]])
             self.output_grid.set_visible_count(0)
             self.input_pane.caption.setText(f"{h}×{w}")
@@ -128,6 +134,21 @@ class StepView(QWidget):
         sr, sc = res.stride
         self.output_pane.caption.setText(f"{out.shape[0]}×{out.shape[1]} · stride {sr}×{sc}")
         self._on_step(s.step)
+
+    def _update_pane_titles(self) -> None:
+        s = self.state
+        kh, kw = s.kernel.shape
+        if s.flip:
+            self.kernel_pane.title.setText("Kernel (flipped)  h[−i, −j]")
+            self.kernel_pane.caption.setText(f"{kh}×{kw} · {s.kernel_name} · reflected for convolution")
+            self.op_label.setText("⊛")
+        else:
+            self.kernel_pane.title.setText("Kernel  h[i, j]")
+            self.kernel_pane.caption.setText(f"{kh}×{kw} · {s.kernel_name} · cross-correlation (no flip)")
+            self.op_label.setText("⋆")
+
+    def _on_flip(self, flip: bool) -> None:
+        self._on_result()
 
     def _on_step(self, step: int) -> None:
         res = self.state.result
@@ -162,3 +183,4 @@ class StepView(QWidget):
                 f"mean {format_value(float(out.mean()))}.</span><br>"
                 f"<span style='color:{theme.TEXT_FAINT}'>Press Play to animate the computation, "
                 f"or hover any cell to inspect its value.</span>")
+

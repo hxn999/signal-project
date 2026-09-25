@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from ..state import PlaygroundState
 from .analyzer_panel import AnalyzerPanel
+from .apps.applications_view import ApplicationsView
 from .compute_panel import ComputePanel
 from .input_panel import InputPanel
 from .kernel_panel import KernelPanel
@@ -39,14 +40,20 @@ class MainWindow(QMainWindow):
         root.setContentsMargins(16, 12, 16, 12)
         root.setSpacing(16)
 
-        root.addWidget(self._build_sidebar())
+        self.sidebar = self._build_sidebar()
+        root.addWidget(self.sidebar)
 
         self.tabs = QTabWidget(objectName="mainTabs")
         self.step_view = StepView(self.state)
         self.result_view = ResultView(self.state)
         self.tabs.addTab(self.step_view, "Step-by-step")
         self.tabs.addTab(self.result_view, "Result map")
+        self.applications = ApplicationsView(self.state)
+        self.tabs.addTab(self.applications, "Applications")
         root.addWidget(self.tabs, 1)
+        # the applications carry their own controls; the convolution sidebar only takes room there
+        self.tabs.currentChanged.connect(
+            lambda: self.sidebar.setVisible(self.tabs.currentWidget() is not self.applications))
 
         status = QStatusBar()
         self.status_label = label()

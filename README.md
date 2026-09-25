@@ -5,7 +5,12 @@ CSE 219 — Signals and Linear Systems. A desktop app (PySide6 / Qt 6) for explo
 the convolution is animated one output sample at a time.
 
 **Version 0.2** adds correlation comparison, causality & BIBO analysis, and
-impulse / step response modes on top of the v0.1 foundation.
+impulse / step response modes on top of the v0.1 foundation. **Version 0.3** adds an
+Applications tab: compression, object detection, portrait mode, deconvolution, Canny
+edges, stereo vision and super resolution — all on a from-scratch FFT.
+
+Full documentation: [docs/README.md](docs/README.md). It has one page per feature, the
+math behind each one, a syllabus map, and an architecture guide.
 
 ## Run
 
@@ -67,13 +72,41 @@ Keyboard: `Space` play/pause · `←`/`→` step · `Home` reset · `End` finish
 - Convolving with the impulse demonstrates that *y = h* (kernel = impulse response).
 - Convolving with the step shows the accumulated response.
 
+## Features (v0.3) — Applications tab
+
+Seven image-processing applications, each built only from CSE 219 material (no ML,
+no DCT, no scipy/OpenCV). Each page has its own image source (built-in samples, the
+playground input, or a file at 128/256/512 px), live parameters, result metrics and a
+"How it works" note.
+
+The FFT is written from scratch (`core/fft.py`) and used everywhere:
+radix-2 DIT with bit reversal, general Cooley–Tukey N = N₁·N₂ (Bailey's row/twiddle/column
+steps) for composite lengths, Bluestein for large primes, 2D as rows then columns, and
+fast convolution with zero-padding to ≥ L + M − 1. It matches `numpy.fft` to ~1e-14.
+
+| Application | How it works | Syllabus topics |
+|---|---|---|
+| **Compression** | Block 2D DFT, keep the largest bins or quantise coarser at high frequency, inverse DFT | DFT, conjugate symmetry (storage count), Parseval (energy kept) |
+| **Object detection** | Template matching: correlation (convolution with the flipped template) via FFT, normalised by patch/template energy | Correlation vs convolution, fast convolution, signal energy, box sum = step response |
+| **Portrait mode** | Disc (pillbox) defocus kernels per blur layer, normalised convolution; subject from a clicked ellipse, a Laplacian-energy sharpness map, or stereo disparity | 2D rect/disc impulse response, LTI blur, fast convolution |
+| **Deconvolution** | Inverse filter X̂ = Y·H*/(\|H\|² + K), bins with \|H\| < ε cut; mirror padding against the circular wrap | Convolution theorem, circular vs linear convolution, zeros of H |
+| **Canny edges** | Gaussian smoothing, Sobel gradients, non-maximum suppression, double threshold + hysteresis | LTI low-pass / differencing kernels, DC gain |
+| **Stereo vision** | For each disparity d shift the right view, block-sum the squared difference, take the arg-min; Z = f·B/d. Synthetic-pair generator with ground truth | Time shift, signal energy, box filtering |
+| **Super resolution** | Zero insertion + ZOH (rect), linear (triangle = rect ⊛ rect), or ideal sinc (zero-padded DFT); downsampling with/without anti-alias LPF | Sampling theorem, aliasing, ZOH / FOH / ideal reconstruction |
+
+The Stereo tab's disparity map feeds the Portrait tab's "Stereo depth" mode: blur is
+proportional to |d − d_focus| (thin-lens defocus ∝ |1/Z − 1/Z_focus|).
+
 ## Layout
 
 ```
 main.py                     entry point
-playground/core/            pure numpy: convolution.py, kernels.py, image_io.py, analyzer.py
+playground/core/            pure numpy: convolution.py, kernels.py, image_io.py, analyzer.py,
+                            fft.py, filters.py, samples.py and one module per application
+                            (compression, detection, portrait, deconvolution, edges, stereo, superres)
 playground/state.py         PlaygroundState — shared state + signals
 playground/ui/              Qt widgets (matrix_grid.py, analyzer_panel.py, …)
-tests/                      pytest suite for the core (128 tests)
+playground/ui/apps/         Applications tab: base.py + one page per application
+tests/                      pytest suite for the core (201 tests)
 ```
 

@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QComboBox, QHBoxLayout, QVBoxLayout, QWidget
 from ..state import PlaygroundState
 from . import theme
 from .matrix_grid import format_value
+from .plotting import colorbar, style_axes
 from .widgets import Card, label
 
 COLORMAPS = {
@@ -70,16 +71,10 @@ class ResultView(QWidget):
             self.refresh()
 
     def _style_axes(self, ax, title: str) -> None:
-        ax.set_facecolor(theme.SURFACE)
-        ax.set_title(title, color=theme.TEXT, fontsize=11, pad=10, loc="left")
-        ax.tick_params(colors=theme.TEXT_FAINT, labelsize=8, length=3)
-        for spine in ax.spines.values():
-            spine.set_color(theme.BORDER)
+        style_axes(ax, title)
 
     def _colorbar(self, im, ax) -> None:
-        cb = self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
-        cb.outline.set_edgecolor(theme.BORDER)
-        cb.ax.tick_params(colors=theme.TEXT_FAINT, labelsize=8)
+        colorbar(self.figure, im, ax)
 
     def refresh(self) -> None:
         self._dirty = False
